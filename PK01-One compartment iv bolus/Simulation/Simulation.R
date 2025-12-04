@@ -1,9 +1,13 @@
-# Author: Vesper
-# Date: 2025/12/02
-# Purpose: Build the dataset for PK1 One-compartment iv bolus
+#### Author: Vesper
+#### Date: 2025/12/02
+#### Purpose: Build the dataset for PK1 One-compartment iv bolus
 
-# 环境准备
+
+## 环境准备
 rm(list=ls()) # 清除所有对象
+
+output_dir = 'results'
+if (!dir.exists(output_dir)) {dir.create(output_dir)}
 
 # 导入包
 library(ggplot2)
@@ -13,7 +17,6 @@ library(rxode2)
 library(readr)
 
 # 使用rxode2进行仿真
-# 定义一室模型，2男，2女
 model <- rxode2({
   # 使用群体典型值定义个体的参数
   CL = TVCL * exp(eta.CL)
@@ -44,7 +47,7 @@ ev_bolus$add.sampling(seq(from=0, to=160, by=20))
 set.seed(123)
 output = rxSolve(object=model, 
                  params=theta, omega=omega, sigma=sigma, inits=ini_iv, 
-                 events = ev_bolus, nSub = 10)
+                 events = ev_bolus, nSub = 10000)
 output
 
 # 查看结果
@@ -58,8 +61,6 @@ out_plot = ggplot(out_df, aes(x=TIME, y=Cpred)) +
     scale_x_continuous(breaks = seq(0, 160, by = 20)) +
     theme_bw()
 out_plot
-# 保存原始数据
-write.csv(out_df, "results/simulation_data_raw.csv",na = ".")
 
 
 
@@ -89,13 +90,11 @@ admin_event <- data.frame(
 )
 
 
-## 3) 合并、排序、加 C 列、NA→"."  -------------------------------
+## 3) 合并、排序  -------------------------------
 dataset_nonmem <- bind_rows(obs_record, admin_event) %>%
   arrange(ID, TIME, desc(EVID), desc(MDV)) %>%  # 同时刻先给药(EVID=1)后观测(EVID=0)
-  mutate(C = NA_real_) %>%                 # 数值型占位符，避免字符型干扰分析
-  select(C, everything())        # C 列放最前
+  rename(CID = ID)
 
 str(dataset_nonmem)
 write.csv(dataset_nonmem, "results/simulation_data.csv",
             na = ".",row.names = FALSE)
-
